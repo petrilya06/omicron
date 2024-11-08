@@ -1,19 +1,54 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-var criterias = tgbotapi.NewInlineKeyboardMarkup(
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Изменить критерии", "CHANGE_CRITERIA"),
-	),
-)
+func createInlineKeyboard(activatedButtons map[int]bool) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	for i := 1; i <= 6; i++ {
+		emoji := EmojiEnable
+		if !activatedButtons[i] {
+			emoji = EmojiDisable
+		}
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d - %s", i, emoji), strconv.Itoa(i)),
+		))
+	}
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Продолжить", "all"),
+	))
+
+	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
+
+// var inlineBoardCriterias = tgbotapi.NewInlineKeyboardMarkup(
+// 	tgbotapi.NewInlineKeyboardRow(
+// 		tgbotapi.NewInlineKeyboardButtonData("1 - "+EmojiEnable, "1"),
+// 		tgbotapi.NewInlineKeyboardButtonData("2 - "+EmojiEnable, "2"),
+// 		tgbotapi.NewInlineKeyboardButtonData("3 - "+EmojiEnable, "3"),
+// 	),
+// 	tgbotapi.NewInlineKeyboardRow(
+// 		tgbotapi.NewInlineKeyboardButtonData("4 - "+EmojiEnable, "4"),
+// 		tgbotapi.NewInlineKeyboardButtonData("5 - "+EmojiEnable, "5"),
+// 		tgbotapi.NewInlineKeyboardButtonData("6 - "+EmojiEnable, "6"),
+// 	),
+// 	tgbotapi.NewInlineKeyboardRow(
+// 		tgbotapi.NewInlineKeyboardButtonData("Продолжить", "all"),
+// 	),
+// )
 
 func RunBot() {
+	var criterias []byte = []byte{1, 1, 1, 1, 1, 1, 1}
+	activatedButtons := map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true}
+
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
 	if err != nil {
 		panic(err)
@@ -31,8 +66,8 @@ func RunBot() {
 
 			switch update.Message.Text {
 			case "/start":
-				msg.Text = "Бу! Испугался? Не бойся, я друг.\nВключить все критерии или нет?"
-				msg.ReplyMarkup = criterias
+				msg.Text = StartMessage
+				msg.ReplyMarkup = createInlineKeyboard(activatedButtons)
 			}
 			if _, err := bot.Send(msg); err != nil {
 				log.Panic(err)
@@ -43,9 +78,20 @@ func RunBot() {
 				panic(err)
 			}
 
-			msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Data)
-			if _, err := bot.Send(msg); err != nil {
-				panic(err)
+			switch update.CallbackQuery.Data {
+			case "1", "2", "3", "4", "5", "6":
+				i, _ := strconv.Atoi(update.CallbackQuery.Data)
+				criterias[i] = 0
+				activatedButtons[i] = !activatedButtons[i] // Переключаем состояние кнопки
+				editMsg := tgbotapi.NewEditMessageReplyMarkup(
+					update.CallbackQuery.Message.Chat.ID,
+					update.CallbackQuery.Message.MessageID,
+					createInlineKeyboard(activatedButtons),
+				)
+
+				if _, err := bot.Send(editMsg); err != nil {
+					log.Println("Error sending edit message:", err)
+				}
 			}
 		}
 	}

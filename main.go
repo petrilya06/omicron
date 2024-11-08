@@ -14,5 +14,6 @@ func main() {
 	}
 
 	slog.SetDefault(logger.InitLogger())
+
 	bot.RunBot()
 }
