@@ -23,27 +23,11 @@ func createInlineKeyboard(activatedButtons map[int]bool) tgbotapi.InlineKeyboard
 	}
 
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Продолжить", "all"),
+		tgbotapi.NewInlineKeyboardButtonData("Продолжить", "continue"),
 	))
 
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }
-
-// var inlineBoardCriterias = tgbotapi.NewInlineKeyboardMarkup(
-// 	tgbotapi.NewInlineKeyboardRow(
-// 		tgbotapi.NewInlineKeyboardButtonData("1 - "+EmojiEnable, "1"),
-// 		tgbotapi.NewInlineKeyboardButtonData("2 - "+EmojiEnable, "2"),
-// 		tgbotapi.NewInlineKeyboardButtonData("3 - "+EmojiEnable, "3"),
-// 	),
-// 	tgbotapi.NewInlineKeyboardRow(
-// 		tgbotapi.NewInlineKeyboardButtonData("4 - "+EmojiEnable, "4"),
-// 		tgbotapi.NewInlineKeyboardButtonData("5 - "+EmojiEnable, "5"),
-// 		tgbotapi.NewInlineKeyboardButtonData("6 - "+EmojiEnable, "6"),
-// 	),
-// 	tgbotapi.NewInlineKeyboardRow(
-// 		tgbotapi.NewInlineKeyboardButtonData("Продолжить", "all"),
-// 	),
-// )
 
 func RunBot() {
 	var criterias []byte = []byte{1, 1, 1, 1, 1, 1, 1}
@@ -92,6 +76,12 @@ func RunBot() {
 				if _, err := bot.Send(editMsg); err != nil {
 					log.Println("Error sending edit message:", err)
 				}
+
+			case "continue":
+				userID := int(update.CallbackQuery.From.ID)
+				fmt.Println(userID)
+				ConnectDB(userID, criterias)
+				GetUsers()
 			}
 		}
 	}
