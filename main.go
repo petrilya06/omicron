@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"omicron/bot"
 	"omicron/logger"
 
 	"github.com/joho/godotenv"
@@ -13,5 +14,5 @@ func main() {
 	}
 
 	slog.SetDefault(logger.InitLogger())
-	slog.Info("starting the application")
+	bot.RunBot()
 }
