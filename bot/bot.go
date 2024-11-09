@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -9,18 +10,16 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func createInlineKeyboard(activatedButtons map[int]int) tgbotapi.InlineKeyboardMarkup {
+func createInlineKeyboard(activatedButtons []bool) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
-	for i := 1; i <= 6; i++ {
+	for i := 0; i < 6; i++ {
 		emoji := EmojiEnable
-		if activatedButtons[i] == 1 {
+		if !activatedButtons[i] {
 			emoji = EmojiDisable
-		} else {
-			emoji = EmojiEnable
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d - %s", i, emoji), strconv.Itoa(i)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d - %s", i+1, emoji), strconv.Itoa(i)),
 		))
 	}
 
@@ -32,7 +31,13 @@ func createInlineKeyboard(activatedButtons map[int]int) tgbotapi.InlineKeyboardM
 }
 
 func RunBot() {
-	activatedButtons := map[int]int{0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0}
+	var userID int
+	var criterias = []bool{true, true, true, true, true, true}
+	db, _ := sql.Open("sqlite3", "./users.db")
+	m, err := NewSQLMap(db)
+	if err != nil {
+		panic(err)
+	}
 
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
 	if err != nil {
@@ -52,7 +57,10 @@ func RunBot() {
 			switch update.Message.Text {
 			case "/start":
 				msg.Text = StartMessage
-				msg.ReplyMarkup = createInlineKeyboard(activatedButtons)
+				msg.ReplyMarkup = createInlineKeyboard(criterias)
+
+				userID = int(update.Message.From.ID)
+				m.AddUser(userID)
 			}
 			if _, err := bot.Send(msg); err != nil {
 				log.Panic(err)
@@ -64,19 +72,15 @@ func RunBot() {
 			}
 
 			switch update.CallbackQuery.Data {
-			case "1", "2", "3", "4", "5", "6":
+			case "0", "1", "2", "3", "4", "5":
 				i, _ := strconv.Atoi(update.CallbackQuery.Data)
-				if activatedButtons[i] == 0 {
-					activatedButtons[i] = 1
-				} else if activatedButtons[i] == 1 {
-					activatedButtons[i] = 0
-				}
+				criterias[i] = !criterias[i] // Переключаем состояние кнопки
 
-				fmt.Println("\n\n\n\n\n", update.CallbackQuery.Data, activatedButtons)
+				fmt.Println("\n\n\n\n\n", update.CallbackQuery.Data, criterias)
 				editMsg := tgbotapi.NewEditMessageReplyMarkup(
 					update.CallbackQuery.Message.Chat.ID,
 					update.CallbackQuery.Message.MessageID,
-					createInlineKeyboard(activatedButtons),
+					createInlineKeyboard(criterias),
 				)
 
 				if _, err := bot.Send(editMsg); err != nil {
@@ -84,16 +88,14 @@ func RunBot() {
 				}
 
 			case "continue":
-				userID := int(update.CallbackQuery.From.ID)
-
-				var criterias []byte = make([]byte, 7)
-				for i := 1; i <= 6; i++ {
-					criterias[i] = byte(activatedButtons[i])
+				m.SetCriterias(userID, criterias)
+				users, err := m.GetAllUsers()
+				if err != nil {
+					log.Fatal(err)
 				}
-
-				fmt.Println(criterias)
-				ConnectDB(userID, criterias)
-				GetUsers()
+				for _, user := range users {
+					log.Printf("User ID: %d, Data: %v", user.TgID, user.Data)
+				}
 			}
 		}
 	}
