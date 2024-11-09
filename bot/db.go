@@ -47,7 +47,10 @@ func GetUsers() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("tg_id: %d, data: %s\n", tg_id, data)
+		log.Printf("tg_id: %d", tg_id)
+		for _, d := range data {
+			log.Printf("data: %d", d)
+		}
 	}
 
 	if err = rows.Err(); err != nil {

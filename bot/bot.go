@@ -9,13 +9,15 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func createInlineKeyboard(activatedButtons map[int]bool) tgbotapi.InlineKeyboardMarkup {
+func createInlineKeyboard(activatedButtons map[int]int) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
 	for i := 1; i <= 6; i++ {
 		emoji := EmojiEnable
-		if !activatedButtons[i] {
+		if activatedButtons[i] == 1 {
 			emoji = EmojiDisable
+		} else {
+			emoji = EmojiEnable
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d - %s", i, emoji), strconv.Itoa(i)),
@@ -30,8 +32,7 @@ func createInlineKeyboard(activatedButtons map[int]bool) tgbotapi.InlineKeyboard
 }
 
 func RunBot() {
-	var criterias []byte = []byte{1, 1, 1, 1, 1, 1, 1}
-	activatedButtons := map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true}
+	activatedButtons := map[int]int{0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0}
 
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
 	if err != nil {
@@ -65,8 +66,13 @@ func RunBot() {
 			switch update.CallbackQuery.Data {
 			case "1", "2", "3", "4", "5", "6":
 				i, _ := strconv.Atoi(update.CallbackQuery.Data)
-				criterias[i] = 0
-				activatedButtons[i] = !activatedButtons[i] // Переключаем состояние кнопки
+				if activatedButtons[i] == 0 {
+					activatedButtons[i] = 1
+				} else if activatedButtons[i] == 1 {
+					activatedButtons[i] = 0
+				}
+
+				fmt.Println("\n\n\n\n\n", update.CallbackQuery.Data, activatedButtons)
 				editMsg := tgbotapi.NewEditMessageReplyMarkup(
 					update.CallbackQuery.Message.Chat.ID,
 					update.CallbackQuery.Message.MessageID,
@@ -79,7 +85,13 @@ func RunBot() {
 
 			case "continue":
 				userID := int(update.CallbackQuery.From.ID)
-				fmt.Println(userID)
+
+				var criterias []byte = make([]byte, 7)
+				for i := 1; i <= 6; i++ {
+					criterias[i] = byte(activatedButtons[i])
+				}
+
+				fmt.Println(criterias)
 				ConnectDB(userID, criterias)
 				GetUsers()
 			}
