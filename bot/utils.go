@@ -50,7 +50,7 @@ func ExtractURLsFromFile(fileID string, bot *tgbotapi.BotAPI) ([]string, error) 
 	return ExtractURLsFromText(string(body)), nil
 }
 
-func CreateInlineKeyboard(activatedButtons []bool) tgbotapi.InlineKeyboardMarkup {
+func CreateInlineKeyboard(activatedButtons [6]bool) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
 	for i := 0; i < 2; i++ {

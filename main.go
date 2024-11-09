@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"omicron/bot"
+	"omicron/db"
 	"omicron/logger"
 
 	"github.com/joho/godotenv"
@@ -14,6 +15,8 @@ func main() {
 	}
 
 	slog.SetDefault(logger.InitLogger())
+
+	db.MustInitDB()
 
 	bot.RunBot()
 }

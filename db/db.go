@@ -1,8 +1,9 @@
-package bot
+package db
 
 import (
 	"database/sql"
 	"encoding/json"
+	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -11,7 +12,21 @@ type SQLMap struct {
 	db *sql.DB
 }
 
-func NewSQLMap(db *sql.DB) (*SQLMap, error) {
+var DBMap *SQLMap
+
+func MustInitDB() *SQLMap {
+	db, _ := sql.Open("sqlite3", os.Getenv("DB_PATH"))
+	m, err := newSQLMap(db)
+	if err != nil {
+		panic(err)
+	}
+
+	DBMap = m
+
+	return m
+}
+
+func newSQLMap(db *sql.DB) (*SQLMap, error) {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (tg_id integer primary key, data BLOB)`)
 	if err != nil {
 		return nil, err
@@ -42,6 +57,7 @@ func (m *SQLMap) GetAllUsers() ([]struct {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	var users []struct {
