@@ -1,0 +1,35 @@
+{
+  "name": "parser",
+  "version": "1.0.0",
+  "main": "./lib/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "lint": "tslint -c tslint.json src/**/*.ts",
+    "prepublish": "npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.1.0",
+    "natural": "^8.0.1",
+    "ollama": "^0.5.9",
+    "pdf-parse": "^1.1.1",
+    "pdfreader": "^3.0.5",
+    "tslint": "^5.20.1",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "./bin/*",
+    "./lib/*"
+  ],
+  "typings": "./lib/index.d.ts",
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/pdf-parse": "^1.1.4"
+  }
+}

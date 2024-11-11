@@ -1,13 +1,12 @@
 package bot
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/petrilya06/omicron/db"
 )
 
 const (
@@ -58,35 +57,14 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 
 	user := users[userID]
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-
-	//TODO: find & get user. Create if not exist
+	criterias := [...]bool{true, true, true, true, true, true}
 
 	if update.Message.Text == "/start" {
 		msg.Text = StartMessage
-		msg.ReplyMarkup = CreateInlineKeyboard(criterias) // from bd
-		user.State = StateNone                            // Состояние остается тем же
-		return
-	}
-
-	switch user.State {
-	default:
-		if update.Message.Document != nil {
-			// Обработка документа
-			documentURLs, err := ExtractURLsFromFile(update.Message.Document.FileID, bot)
-			if err == nil {
-				fmt.Println(documentURLs)
-			} else {
-				log.Println("Error extracting URLs from file:", err)
-			}
-		} else {
-			msg := strings.Split(update.Message.Text, " ")
-
-			for _, word := range msg {
-				if IsValidURL(word) {
-					// word = url
-				}
-			}
-		}
+		msg.ReplyMarkup = CreateInlineKeyboard(criterias) // Передаем текущие критерии
+		user.State = StateNone
+	} else {
+		// Обработка других сообщений
 	}
 
 	if msg.Text != "" {
@@ -109,18 +87,31 @@ func HandleCallbackQuery(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		users[userID] = &User{ID: userID, State: StateStart}
 	}
 
-	//user := users[userID]
 	msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "")
+	criterias, err := db.GetDataByUserID(userID) // Получаем текущие критерии
+	if err != nil {
+		log.Println("Error getting data from DB:", err)
+		return
+	}
 
 	switch update.CallbackQuery.Data {
 	case "1", "2", "3", "4", "5", "6":
 		i, _ := strconv.Atoi(update.CallbackQuery.Data)
 
-		criterias[i-1] = !criterias[i-1] // in bd
+		// Изменяем критерий
+		criterias[i-1] = !criterias[i-1] // Меняем значение критерия
+
+		// Обновляем данные в базе данных
+		if err := db.UpdateDataByUserID(userID, criterias); err != nil {
+			log.Println("Error updating data in DB:", err)
+			return
+		}
+
+		// Обновляем клавиатуру с новыми значениями
 		editMsg := tgbotapi.NewEditMessageReplyMarkup(
 			update.CallbackQuery.Message.Chat.ID,
 			update.CallbackQuery.Message.MessageID,
-			CreateInlineKeyboard(criterias), // new value from bd
+			CreateInlineKeyboard(criterias),
 		)
 
 		if _, err := bot.Send(editMsg); err != nil {

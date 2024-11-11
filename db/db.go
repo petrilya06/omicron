@@ -1,7 +1,9 @@
 package db
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"os"
 
@@ -40,12 +42,46 @@ func (m *SQLMap) AddUser(tg_id int) error {
 }
 
 func (m *SQLMap) SetCriterias(tg_id int, criterias []bool) error {
-	data, err := json.Marshal(criterias) // Преобразуем данные в JSON
-	if err != nil {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(criterias); err != nil {
 		return err
 	}
-	_, err = m.db.Exec("UPDATE users SET data = ? WHERE tg_id = ?", data, tg_id)
+
+	_, err := m.db.Exec("UPDATE users SET data = ? WHERE tg_id = ?", buf.Bytes(), tg_id)
 	return err
+}
+
+func (m *SQLMap) UpdateDataByUserID(tg_id int, newCriterias []bool) error {
+	// Сначала кодируем новые данные в формат gob
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(newCriterias); err != nil {
+		return err
+	}
+
+	// Затем обновляем данные в базе данных
+	_, err := m.db.Exec("UPDATE users SET data = ? WHERE tg_id = ?", buf.Bytes(), tg_id)
+	return err
+}
+
+func (m *SQLMap) GetDataByUserID(tg_id int) ([]bool, error) {
+	var data []byte
+	err := m.db.QueryRow("SELECT data FROM users WHERE tg_id = ?", tg_id).Scan(&data)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var criterias []bool
+	dec := gob.NewDecoder(bytes.NewReader(data))
+	if err := dec.Decode(&criterias); err != nil {
+		return nil, err
+	}
+
+	return criterias, nil
 }
 
 // Метод для получения всех пользователей и их данных
