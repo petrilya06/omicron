@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/gob"
-	"encoding/json"
+	"fmt"
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -65,18 +65,22 @@ func (m *SQLMap) UpdateDataByUserID(tg_id int, newCriterias []bool) error {
 	return err
 }
 
-func (m *SQLMap) GetDataByUserID(tg_id int) ([]bool, error) {
+func (m *SQLMap) GetCriteriasByUserID(tg_id int) ([]bool, error) {
 	var data []byte
-	err := m.db.QueryRow("SELECT data FROM users WHERE tg_id = ?", tg_id).Scan(&data)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
+	query := "SELECT data FROM users WHERE tg_id = ?"
+	err := m.db.QueryRow(query, tg_id).Scan(&data)
+
+	if err == sql.ErrNoRows {
+		// Пользователь не найден
+		return nil, nil // Или верните ошибку, если это необходимо
+	} else if err != nil {
+		// Обработка других ошибок
 		return nil, err
 	}
 
 	var criterias []bool
-	dec := gob.NewDecoder(bytes.NewReader(data))
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
 	if err := dec.Decode(&criterias); err != nil {
 		return nil, err
 	}
@@ -85,44 +89,36 @@ func (m *SQLMap) GetDataByUserID(tg_id int) ([]bool, error) {
 }
 
 // Метод для получения всех пользователей и их данных
-func (m *SQLMap) GetAllUsers() ([]struct {
-	TgID int
-	Data []bool
-}, error) {
+func (m *SQLMap) PrintAllUsers() error {
 	rows, err := m.db.Query("SELECT tg_id, data FROM users")
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	defer rows.Close()
 
-	var users []struct {
-		TgID int
-		Data []bool
-	}
-
 	for rows.Next() {
-		var user struct {
-			TgID int
-			Data []byte
-		}
-		if err := rows.Scan(&user.TgID, &user.Data); err != nil {
-			return nil, err
+		var tgID int
+		var data []byte
+		if err := rows.Scan(&tgID, &data); err != nil {
+			return err
 		}
 
+		// Декодируем данные из формата GOB
 		var criterias []bool
-		if err := json.Unmarshal(user.Data, &criterias); err != nil {
-			return nil, err
+		buf := bytes.NewBuffer(data)
+		dec := gob.NewDecoder(buf)
+		if err := dec.Decode(&criterias); err != nil {
+			return err
 		}
 
-		users = append(users, struct {
-			TgID int
-			Data []bool
-		}{
-			TgID: user.TgID,
-			Data: criterias,
-		})
+		// Выводим tg_id и data
+		fmt.Printf("tg_id: %d, data: %v\n", tgID, criterias)
 	}
 
-	return users, nil
+	// Проверяем, произошла ли ошибка при чтении строк
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }

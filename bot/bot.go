@@ -1,12 +1,13 @@
 package bot
 
 import (
+	"fmt"
 	"log"
+	"omicron/db"
 	"os"
 	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/petrilya06/omicron/db"
 )
 
 const (
@@ -23,7 +24,9 @@ type User struct {
 var users = make(map[int]*User)
 
 func RunBot() {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
+	db.MustInitDB()
+
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
 	if err != nil {
 		panic(err)
 	}
@@ -53,13 +56,31 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	// Инициализация пользователя, если он новый
 	if _, exists := users[userID]; !exists {
 		users[userID] = &User{ID: userID, State: StateStart}
+
+		// Добавляем пользователя в базу данных
+		if err := db.DBMap.AddUser(userID); err != nil {
+			log.Println("Error adding user to DB:", err)
+			return
+		}
 	}
 
 	user := users[userID]
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-	criterias := [...]bool{true, true, true, true, true, true}
+	criterias := []bool{true, true, true, true, true, true}
+
+	a := db.DBMap.PrintAllUsers()
+	fmt.Println("\n\n\n\n\n\nAll users:", a)
 
 	if update.Message.Text == "/start" {
+		// Если пользователь только что добавлен, можно инициализировать его критерии
+		if user.State == StateStart {
+			// Здесь можно установить начальные критерии, если это необходимо
+			if err := db.DBMap.SetCriterias(userID, criterias); err != nil {
+				log.Println("Error setting criteria for user:", err)
+				return
+			}
+		}
+
 		msg.Text = StartMessage
 		msg.ReplyMarkup = CreateInlineKeyboard(criterias) // Передаем текущие критерии
 		user.State = StateNone
@@ -87,8 +108,7 @@ func HandleCallbackQuery(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		users[userID] = &User{ID: userID, State: StateStart}
 	}
 
-	msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "")
-	criterias, err := db.GetDataByUserID(userID) // Получаем текущие критерии
+	criterias, err := db.DBMap.GetCriteriasByUserID(userID) // Получаем текущие критерии
 	if err != nil {
 		log.Println("Error getting data from DB:", err)
 		return
@@ -102,7 +122,7 @@ func HandleCallbackQuery(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		criterias[i-1] = !criterias[i-1] // Меняем значение критерия
 
 		// Обновляем данные в базе данных
-		if err := db.UpdateDataByUserID(userID, criterias); err != nil {
+		if err := db.DBMap.UpdateDataByUserID(userID, criterias); err != nil {
 			log.Println("Error updating data in DB:", err)
 			return
 		}
@@ -114,15 +134,11 @@ func HandleCallbackQuery(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 			CreateInlineKeyboard(criterias),
 		)
 
+		a := db.DBMap.PrintAllUsers()
+		fmt.Println("\n\n\n\n\n\nAll users:", a)
+
 		if _, err := bot.Send(editMsg); err != nil {
 			log.Println("Error sending edit message:", err)
-		}
-	}
-
-	// Проверяем, что текст сообщения не пустой перед отправкой
-	if msg.Text != "" {
-		if _, err := bot.Send(msg); err != nil {
-			log.Panic(err)
 		}
 	}
 }
