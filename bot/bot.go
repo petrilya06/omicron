@@ -69,7 +69,7 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	criterias := []bool{true, true, true, true, true, true}
 
 	a := db.DBMap.PrintAllUsers()
-	fmt.Println("\n\n\n\n\n\nAll users:", a)
+	fmt.Println(a)
 
 	if update.Message.Text == "/start" {
 		// Если пользователь только что добавлен, можно инициализировать его критерии
